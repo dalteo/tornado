@@ -2942,29 +2942,34 @@ class URLSpec(object):
             return (None, None)
 
         pieces = []
+        format_idx = 0
         for fragment in pattern.split('('):
             if ')' in fragment:
                 paren_loc = fragment.index(')')
                 if paren_loc >= 0:
-                    pieces.append('%s' + fragment[paren_loc + 1:])
+                    if fragment.startswith('?P<'):
+                        name = re.search('\?P<(\w+)>', fragment).group(1)
+                        pieces.append('{%s}'%name + fragment[paren_loc + 1:])
+                    else:
+                        pieces.append('{%i}'%format_idx + fragment[paren_loc + 1:])
             else:
                 pieces.append(fragment)
 
         return (''.join(pieces), self.regex.groups)
 
-    def reverse(self, *args):
+    def reverse(self, *args, **kwargs):
         assert self._path is not None, \
             "Cannot reverse url regex " + self.regex.pattern
-        assert len(args) == self._group_count, "required number of arguments "\
+        assert len(args) + len(kwargs) == self._group_count, "required number of arguments "\
             "not found"
-        if not len(args):
+        if not len(args) + len(kwargs):
             return self._path
         converted_args = []
         for a in args:
             if not isinstance(a, (unicode_type, bytes)):
                 a = str(a)
             converted_args.append(escape.url_escape(utf8(a), plus=False))
-        return self._path % tuple(converted_args)
+        return self._path.format(*args, **kwargs)# % tuple(converted_args)
 
 url = URLSpec
 
