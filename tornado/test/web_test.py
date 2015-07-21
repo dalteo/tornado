@@ -644,6 +644,7 @@ class WSGISafeWebTest(WebTestCase):
         urls = [
             url("/typecheck/(.*)", TypeCheckHandler, name='typecheck'),
             url("/decode_arg/(.*)", DecodeArgHandler, name='decode_arg'),
+            url("/decode_kwarg/(?P<foo>.*)", DecodeArgHandler, name='decode_kwarg'),
             url("/decode_arg_kw/(?P<arg>.*)", DecodeArgHandler),
             url("/linkify", LinkifyHandler),
             url("/uimodule_resources", UIModuleResourceHandler),
@@ -728,6 +729,8 @@ class WSGISafeWebTest(WebTestCase):
                          '/decode_arg/%C3%A9')
         self.assertEqual(self.app.reverse_url('decode_arg', '1 + 1'),
                          '/decode_arg/1%20%2B%201')
+        self.assertEqual(self.app.reverse_url('decode_kwarg', foo='bar'),
+                         '/decode_kwarg/bar')
 
     def test_uimodule_unescaped(self):
         response = self.fetch("/linkify")

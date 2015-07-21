@@ -1296,9 +1296,9 @@ class RequestHandler(object):
             raise Exception("You must define the '%s' setting in your "
                             "application to use %s" % (name, feature))
 
-    def reverse_url(self, name, *args):
+    def reverse_url(self, name, *args, **kwargs):
         """Alias for `Application.reverse_url`."""
-        return self.application.reverse_url(name, *args)
+        return self.application.reverse_url(name, *args, **kwargs)
 
     def compute_etag(self):
         """Computes the etag header to be used for this request.
@@ -1872,7 +1872,7 @@ class Application(httputil.HTTPServerConnectionDelegate):
         dispatcher.set_request(request)
         return dispatcher.execute()
 
-    def reverse_url(self, name, *args):
+    def reverse_url(self, name, *args, **kwargs):
         """Returns a URL path for handler named ``name``
 
         The handler must be added to the application as a named `URLSpec`.
@@ -1882,7 +1882,7 @@ class Application(httputil.HTTPServerConnectionDelegate):
         and url-escaped.
         """
         if name in self.named_handlers:
-            return self.named_handlers[name].reverse(*args)
+            return self.named_handlers[name].reverse(*args, **kwargs)
         raise KeyError("%s not found in named urls" % name)
 
     def log_request(self, handler):
@@ -1952,13 +1952,15 @@ class _RequestDispatcher(httputil.HTTPMessageDelegate):
                     # match.groups() includes both named and
                     # unnamed groups, we want to use either groups
                     # or groupdict but not both.
-                    if spec.regex.groupindex:
-                        self.path_kwargs = dict(
-                            (str(k), _unquote_or_none(v))
-                            for (k, v) in match.groupdict().items())
-                    else:
-                        self.path_args = [_unquote_or_none(s)
-                                          for s in match.groups()]
+                    #if spec.regex.groupindex:
+                    print(match.groupdict())
+                    self.path_kwargs = dict(
+                        (str(k), _unquote_or_none(v))
+                        for (k, v) in match.groupdict().items())
+                    #else:
+                    print(match.groups())
+                    self.path_args = [_unquote_or_none(s)
+                                      for s in match.groups()]
                 return
         if app.settings.get('default_handler_class'):
             self.handler_class = app.settings['default_handler_class']
@@ -2887,6 +2889,8 @@ class _UIModuleNamespace(object):
 
 class URLSpec(object):
     """Specifies mappings between URLs and handlers."""
+    _kwargs_regex = re.compile('\?P<(.+)>.+')
+    
     def __init__(self, pattern, handler, kwargs=None, name=None):
         """Parameters:
 
@@ -2905,9 +2909,9 @@ class URLSpec(object):
         if not pattern.endswith('$'):
             pattern += '$'
         self.regex = re.compile(pattern)
-        assert len(self.regex.groupindex) in (0, self.regex.groups), \
-            ("groups in url regexes must either be all named or all "
-             "positional: %r" % self.regex.pattern)
+        #assert len(self.regex.groupindex) in (0, self.regex.groups), \
+        #    ("groups in url regexes must either be all named or all "
+        #     "positional: %r" % self.regex.pattern)
 
         if isinstance(handler, str):
             # import the Module and instantiate the class
@@ -2942,29 +2946,43 @@ class URLSpec(object):
             return (None, None)
 
         pieces = []
+        format_idx = 0
         for fragment in pattern.split('('):
             if ')' in fragment:
                 paren_loc = fragment.index(')')
+                
                 if paren_loc >= 0:
-                    pieces.append('%s' + fragment[paren_loc + 1:])
+                    s = URLSpec._kwargs_regex.search(fragment)
+                    if s:
+                        pieces.append('{%s}'%s.group(1) + fragment[paren_loc + 1:])
+                    else:
+                        pieces.append('{%i}'%format_idx + fragment[paren_loc + 1:])
+                        format_idx += 1
             else:
                 pieces.append(fragment)
 
         return (''.join(pieces), self.regex.groups)
 
-    def reverse(self, *args):
+    def reverse(self, *args, **kwargs):
         assert self._path is not None, \
             "Cannot reverse url regex " + self.regex.pattern
-        assert len(args) == self._group_count, "required number of arguments "\
+        assert len(args) + len(kwargs) == self._group_count, "required number of arguments "\
             "not found"
-        if not len(args):
+        if not len(args) + len(kwargs):
             return self._path
         converted_args = []
+        converted_kwargs = {}
         for a in args:
             if not isinstance(a, (unicode_type, bytes)):
                 a = str(a)
             converted_args.append(escape.url_escape(utf8(a), plus=False))
-        return self._path % tuple(converted_args)
+        for key, a in kwargs.items():
+            if not isinstance(a, (unicode_type, bytes)):
+                a = str(a)
+            if not isinstance(key, (unicode_type, bytes)):
+                key = str(key)
+            converted_kwargs[key] = escape.url_escape(utf8(a), plus=False)
+        return self._path.format(*converted_args, **converted_kwargs)
 
 url = URLSpec
 
