@@ -1953,7 +1953,6 @@ class _RequestDispatcher(httputil.HTTPMessageDelegate):
             return
         for spec in handlers:
             match = spec.regex.match(self.request.path)
-            print(self.request.path)
             if match:
                 self.handler_class = spec.handler_class
                 self.handler_kwargs = spec.kwargs
