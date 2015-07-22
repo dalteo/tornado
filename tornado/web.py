@@ -2926,6 +2926,7 @@ class URLSpec(object):
         * ``name`` (optional): A name for this handler.  Used by
           `Application.reverse_url`.
         """
+        
         if not pattern.endswith('$'):
             pattern += '$'
         self.regex = re.compile(pattern)
@@ -2941,6 +2942,7 @@ class URLSpec(object):
         self.handler_class = handler
         self.kwargs = kwargs or {}
         self.name = name
+        
         self._path, self._group_count = self._find_groups()
 
     def __repr__(self):
@@ -2959,7 +2961,7 @@ class URLSpec(object):
             pattern = pattern[1:]
         if pattern.endswith('$'):
             pattern = pattern[:-1]
-
+        
         if self.regex.groups != pattern.count('('):
             # The pattern is too complicated for our simplistic matching,
             # so we can't support reversing it.
@@ -2967,6 +2969,7 @@ class URLSpec(object):
 
         pieces = []
         format_idx = 0
+        print(pattern)
         for fragment in pattern.split('('):
             if ')' in fragment:
                 paren_loc = fragment.index(')')
@@ -2984,6 +2987,7 @@ class URLSpec(object):
         return (''.join(pieces), self.regex.groups)
 
     def reverse(self, *args, **kwargs):
+        print(self._path)
         assert self._path is not None, \
             "Cannot reverse url regex " + self.regex.pattern
         assert len(args) + len(kwargs) == self._group_count, "required number of arguments "\
